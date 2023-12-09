@@ -5,10 +5,13 @@ from functools import partial
 import numpy as np
 from tango import DeviceProxy, AttributeProxy, EventType, DevState
 from typing import List, Dict
+import argparse
 
 
 log = logging.getLogger("stresstest")
+log.addHandler(logging.StreamHandler())
 log.setLevel(logging.INFO)
+
 
 FQDN_MICROSCOPE = "haspp04interm:10000/p04/tangovimba/MaxP04_cam"
 ATTR_LIST_TEST = [
@@ -95,7 +98,7 @@ def poll_attribute(fqdn: str, wait: float, totaltime: float) -> List[float]:
     """
     try:
         attr = AttributeProxy(fqdn)
-        attr.read()
+        attr.read(timeout=30)
     except Exception as exc:
         log.error(f"{fqdn}: {exc}")
         return []
@@ -171,10 +174,10 @@ def start_vimbacamera(fqdn: str, fps: float, streamrate: float, subscribe: bool)
 
     cam.StartAcquisition()
     log.info(f"Start acquisition.")
-    return event_id
+    return cam, event_id
 
 
-def stop_vimbacamera(fqdn: str, event_id=None):
+def stop_vimbacamera(cam, event_id=None):
     """
     Stop acquisition and unsubscribe events
 
@@ -185,7 +188,6 @@ def stop_vimbacamera(fqdn: str, event_id=None):
     event_id
         Numeric id of event subscription, or None
     """
-    cam = DeviceProxy(fqdn)
     if event_id is not None:
         cam.unsubscribe_event(event_id)
         log.info(f"Unsubscribing with event_id={event_id}")
@@ -239,10 +241,11 @@ def save_timings(fname: str, timings: Dict):
 
 
 def main(fps=2, streamMB=1.5, subscribe=True, wait=1, totaltime=30):
-    event_id = start_vimbacamera(FQDN_MICROSCOPE, fps, int(1e6 * streamMB), True)
+    cam, event_id = start_vimbacamera(FQDN_MICROSCOPE, fps, int(1e6 * streamMB), True)
     results = worker_attributelist(ATTR_LIST_MAXP04, wait, totaltime)
-    stop_vimbacamera(FQDN_MICROSCOPE, event_id)
+    stop_vimbacamera(cam, event_id)
     tstamp = time.strftime("%Y%m%d_%H%M%S")
+    csvname = f"timings_{tstamp}.csv"
     info = [
         f"fps={fps}",
         f"streamMB={streamMB}",
@@ -251,10 +254,21 @@ def main(fps=2, streamMB=1.5, subscribe=True, wait=1, totaltime=30):
         f"totaltime={totaltime}"
     ]
     info_header = "\n".join(["# " + v for v in info]) + "\n"
-    with open(f"timings_{tstamp}.csv", "w") as f:
+    with open(csvname, "w") as f:
         f.write(info_header)
         save_timings(f, results)
+    log.info(f"Results saved to {csvname}")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        prog='tangovimba_stresstest',
+        description='Measure tango attribute access times with active vimba camera.',
+    )
+    parser.add_argument("fps", type=float, default=2)
+    parser.add_argument("streamMB", type=float, default=6)
+    parser.add_argument("subscribe", type=bool, default=True)
+    parser.add_argument("wait", type=float, default=1)
+    parser.add_argument("totaltime", type=float, default=30)
+    args = parser.parse_args()
+    main(**vars(args))
