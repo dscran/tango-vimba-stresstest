@@ -228,8 +228,17 @@ def save_timings(fname: str, timings: Dict):
     np.savetxt(fname, data.T, fmt="%.3f", delimiter=",", header=header)
 
 
-def main():
-    start_vimbacamera(FQDN_MICROSCOPE, 2, 1_500_000, True)
+def main(fps=2, streamMB=1.5, subscribe=True, wait=1, totaltime=30):
+    event_id = start_vimbacamera(FQDN_MICROSCOPE, fps, int(1e6 * streamMB), True)
+    results = worker_attributelist(ATTR_LIST_MAXP04, wait, totaltime)
+    stop_vimbacamera(event_id)
+    tstamp = time.strftime("%Y%m%d_%H%M%S")
+    info = [f"{fps=}", f"{streamMB=}", f"{subscribe=}", f"{wait=}", f"{totaltime=}"]
+    info_header = "\n".join(["# " + v for v in info]) + "\n"
+    with open(f"timings_{tstamp}.csv", "w") as f:
+        f.write(info_header)
+        save_timings(f, results)
+
 
 if __name__ == "__main__":
     main()
