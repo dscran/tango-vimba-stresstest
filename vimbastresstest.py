@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 import numpy as np
 from tango import DeviceProxy, AttributeProxy, EventType, DevState
+from typing import List, Dict
 
 
 log = logging.getLogger("stresstest")
@@ -60,7 +61,7 @@ ATTR_LIST_MAXP04 = [
 ]
 
 
-def poll_attribute(fqdn: str, wait: float, totaltime: float) -> list[float]:
+def poll_attribute(fqdn: str, wait: float, totaltime: float) -> List[float]:
     """
     Repeatedly poll attribute and return list of access times.
 
@@ -89,9 +90,12 @@ def poll_attribute(fqdn: str, wait: float, totaltime: float) -> list[float]:
 
     log.info(f"Start polling {fqdn} for {totaltime} s.")
     time_start = time.time()
-    while (t0 := time.time()) < (time_start + totaltime):
+    while True:
+        t0 = time.time()
         value = attr.read()
         access_times.append(1000 * (time.time() - t0))
+        if t0 > (time_start + totaltime):
+            break
         time.sleep(wait)
     log.info(f"Finished polling {fqdn}")
     return access_times
@@ -175,7 +179,7 @@ def stop_vimbacamera(fqdn: str, event_id=None):
     log.info("Stop acquisition.")
 
 
-def worker_attributelist(attributes: list[str], wait: float, totaltime: float) -> dict:
+def worker_attributelist(attributes: List[str], wait: float, totaltime: float) -> Dict:
     """
     Simultaneously start polling several attributes.
 
@@ -201,7 +205,7 @@ def worker_attributelist(attributes: list[str], wait: float, totaltime: float) -
     return {attr: times for attr, times in zip(attributes, timings)}
 
 
-def save_timings(fname: str, timings: dict):
+def save_timings(fname: str, timings: Dict):
     maxrows = max([len(v) for v in timings.values()])
     data = np.nan * np.ones((len(timings), maxrows))
     for i, v in enumerate(timings.values()):
