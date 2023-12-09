@@ -10,7 +10,7 @@ from typing import List, Dict
 log = logging.getLogger("stresstest")
 log.setLevel(logging.INFO)
 
-FQDN_MICROSCOPE = "haspp04interm:10000/p04/tangovimba/"
+FQDN_MICROSCOPE = "haspp04interm:10000/p04/tangovimba/MaxP04_cam"
 ATTR_LIST_TEST = [
     "sys/tg_test/1/ampli",
     "sys/tg_test/1/boolean_scalar",
@@ -157,7 +157,7 @@ def start_vimbacamera(fqdn: str, fps: float, streamrate: float, subscribe: bool)
         cam.StopAcquisition()
     log.info(f"Configuring camera {fqdn}")
     cam.StreamBytesPerSecond = streamrate
-    fpsmax = cam.AcquisitionFrameRateLimit.read().value
+    fpsmax = cam.AcquisitionFrameRateLimit
     log.info(f"Max. frame rate: {fpsmax:.2f}")
     cam.AcquisitionFrameRateAbs = min(fps, fpsmax)
     log.info(f"stream rate: {streamrate}, frame rate: {min(fps, fpsmax)}")
@@ -241,7 +241,7 @@ def save_timings(fname: str, timings: Dict):
 def main(fps=2, streamMB=1.5, subscribe=True, wait=1, totaltime=30):
     event_id = start_vimbacamera(FQDN_MICROSCOPE, fps, int(1e6 * streamMB), True)
     results = worker_attributelist(ATTR_LIST_MAXP04, wait, totaltime)
-    stop_vimbacamera(event_id)
+    stop_vimbacamera(FQDN_MICROSCOPE, event_id)
     tstamp = time.strftime("%Y%m%d_%H%M%S")
     info = [
         f"fps={fps}",
