@@ -10,7 +10,7 @@ from typing import List, Dict
 log = logging.getLogger("stresstest")
 log.setLevel(logging.INFO)
 
-
+FQDN_MICROSCOPE = "haspp04interm:10000/p04/tangovimba/"
 ATTR_LIST_TEST = [
     "sys/tg_test/1/ampli",
     "sys/tg_test/1/boolean_scalar",
@@ -58,6 +58,20 @@ ATTR_LIST_MAXP04 = [
     "haspp04exp1:10000/p04/motor/exp1_2.06/State",
     # haspp04max: sardana elements, smaract
     "haspp04max:10000/motor/piezojenactrl/0/Position",
+    "haspp04max:10000/motor/tm_rmucoordinate_rmu1_hrotz/1/Position",
+    "haspp04max:10000/motor/tm_rmucoordinate_rmu1_hrotz/1/State",
+    "haspp04max:10000/motor/tm_rmucoordinate_rmu1_vrotx/1/Position",
+    "haspp04max:10000/motor/tm_rmucoordinate_rmu1_vrotx/1/State",
+    "haspp04max:10000/motor/tm_rmucoordinate_rmu1_hx/1/Position",
+    "haspp04max:10000/motor/tm_rmucoordinate_rmu1_hx/1/State",
+    "haspp04max:10000/motor/tm_rmucoordinate_rmu1_hz/1/Position",
+    "haspp04max:10000/motor/tm_rmucoordinate_rmu1_hz/1/State",
+    "haspp04max:10000/motor/tm_rmucoordinate_rmu1_vx/1/Position",
+    "haspp04max:10000/motor/tm_rmucoordinate_rmu1_vx/1/State",
+    "haspp04max:10000/motor/vm_br1_exitslit/1/Position",
+    "haspp04max:10000/motor/vm_br1_exitslit/1/State",
+    "haspp04max:10000/motor/vm_br1_master/1/Position",
+    "haspp04max:10000/motor/vm_br1_master/1/State",
 ]
 
 
@@ -214,3 +228,8 @@ def save_timings(fname: str, timings: Dict):
     np.savetxt(fname, data.T, fmt="%.3f", delimiter=",", header=header)
 
 
+def main():
+    start_vimbacamera(FQDN_MICROSCOPE, 2, 1_500_000, True)
+
+if __name__ == "__main__":
+    main()
