@@ -165,7 +165,7 @@ def start_vimbacamera(fqdn: str, fps: float, streamrate: float, subscribe: bool)
 
     if subscribe:
         event_id = cam.subscribe_event("image8", EventType.CHANGE_EVENT, image_handler)
-        log.info(f"Subscribing to image8 change event. {event_id=}")
+        log.info(f"Subscribing to image8 change event. event_id={event_id}")
     else:
         log.info("Not subscribing to image change event.")
 
@@ -188,7 +188,7 @@ def stop_vimbacamera(fqdn: str, event_id=None):
     cam = DeviceProxy(fqdn)
     if event_id is not None:
         cam.unsubscribe_event(event_id)
-        log.info(f"Unsubscribing with {event_id=}")
+        log.info(f"Unsubscribing with event_id={event_id}")
     cam.StopAcquisition()
     log.info("Stop acquisition.")
 
@@ -220,6 +220,16 @@ def worker_attributelist(attributes: List[str], wait: float, totaltime: float) -
 
 
 def save_timings(fname: str, timings: Dict):
+    """
+    Save access timings as csv file.
+
+    Parameters
+    ----------
+    fname
+        filename or file object with write method
+    timings
+        timing result dictionary from worker_attributelist
+    """
     maxrows = max([len(v) for v in timings.values()])
     data = np.nan * np.ones((len(timings), maxrows))
     for i, v in enumerate(timings.values()):
@@ -233,7 +243,13 @@ def main(fps=2, streamMB=1.5, subscribe=True, wait=1, totaltime=30):
     results = worker_attributelist(ATTR_LIST_MAXP04, wait, totaltime)
     stop_vimbacamera(event_id)
     tstamp = time.strftime("%Y%m%d_%H%M%S")
-    info = [f"{fps=}", f"{streamMB=}", f"{subscribe=}", f"{wait=}", f"{totaltime=}"]
+    info = [
+        f"fps={fps}",
+        f"streamMB={streamMB}",
+        f"subscribe={subscribe}",
+        f"wait={wait}",
+        f"totaltime={totaltime}"
+    ]
     info_header = "\n".join(["# " + v for v in info]) + "\n"
     with open(f"timings_{tstamp}.csv", "w") as f:
         f.write(info_header)
