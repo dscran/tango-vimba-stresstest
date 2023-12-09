@@ -1,0 +1,212 @@
+import time
+import logging
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+import numpy as np
+from tango import DeviceProxy, AttributeProxy, EventType, DevState
+
+
+log = logging.getLogger("stresstest")
+log.setLevel(logging.INFO)
+
+
+ATTR_LIST_TEST = [
+    "sys/tg_test/1/ampli",
+    "sys/tg_test/1/boolean_scalar",
+    "sys/tg_test/1/double_scalar",
+    "sys/tg_test/1/enum_scalar",
+    "sys/tg_test/1/float_image_ro",
+    "sys/tg_test/1/State",
+    "sys/tg_test/1/long_scalar",
+]
+
+
+ATTR_LIST_MAXP04 = [
+    # haspp04interm: vimba cameras
+    "haspp04interm:10000/p04/tangovimba/MaxP04_cam/State",
+    "haspp04interm:10000/p04/tangovimba/MaxP04_cam/DeviceTemperature",
+    # haspp04exp1: steppers, beckhoff, misc
+    "haspp04exp1:10000/p04/keithley6517a/exp1_mesh/Current",
+    "haspp04exp1:10000/p04/keithley6517a/exp1_mesh/Range",
+    "haspp04exp1:10000/p04/keithley6517a/exp1_mesh/State",
+    "haspp04exp1:10000/p04/keithley6517a/exp1_mesh/ZeroCheck",
+    "haspp04exp1:10000/p04/monop04/exp1.01/EnergyMean",
+    "haspp04exp1:10000/p04/monop04/exp1.01/State",
+    "haspp04exp1:10000/p04/monop04/exp1.01/Position",
+    "haspp04exp1:10000/p04/monop04/exp1.01/Order",
+    "haspp04exp1:10000/p04/pyadsadaptor/haspp04beck10_branch1/fast.femto1.target_index",
+    "haspp04exp1:10000/p04/pyadsadaptor/haspp04beck10_branch1/fast.femto1_start",
+    "haspp04exp1:10000/p04/pyadsadaptor/haspp04beck10_branch1/fast.sample_rate",
+    "haspp04exp1:10000/p04/pyadsadaptor/haspp04beck10_branch1/main.cpu_usage",
+    "haspp04exp1:10000/p04/pyadsadaptor/haspp04beck10_branch1/main.input7",
+    "haspp04exp1:10000/p04/pyadsadaptor/haspp04beck10_branch1/main.input8",
+    "haspp04exp1:10000/p04/pyadsadaptor/haspp04beck10_branch1/main.filter_elm_ch1_value",
+    "haspp04exp1:10000/p04/pyadsadaptor/haspp04beck10_branch1/fast.femto2.femto_array1",
+    "haspp04exp1:10000/p04/pyadsadaptor/haspp04beck10_branch1/fast.femto1.femto_array1",
+    "haspp04exp1:10000/p04/motor/exp1_2.01/Position",
+    "haspp04exp1:10000/p04/motor/exp1_2.01/State",
+    "haspp04exp1:10000/p04/motor/exp1_2.02/Position",
+    "haspp04exp1:10000/p04/motor/exp1_2.02/State",
+    "haspp04exp1:10000/p04/motor/exp1_2.03/Position",
+    "haspp04exp1:10000/p04/motor/exp1_2.03/State",
+    "haspp04exp1:10000/p04/motor/exp1_2.04/Position",
+    "haspp04exp1:10000/p04/motor/exp1_2.04/State",
+    "haspp04exp1:10000/p04/motor/exp1_2.05/Position",
+    "haspp04exp1:10000/p04/motor/exp1_2.05/State",
+    "haspp04exp1:10000/p04/motor/exp1_2.06/Position",
+    "haspp04exp1:10000/p04/motor/exp1_2.06/State",
+    # haspp04max: sardana elements, smaract
+    "haspp04max:10000/motor/piezojenactrl/0/Position",
+]
+
+
+def poll_attribute(fqdn: str, wait: float, totaltime: float) -> list[float]:
+    """
+    Repeatedly poll attribute and return list of access times.
+
+    Parameters
+    ----------
+    fqdn
+        Fully qualified domain name of tango attribute to poll
+    wait
+        timeout in seconds between successful polls
+    totaltime
+        total time in seconds during which to poll attribute
+
+    Returns
+    -------
+    access_times
+        list of access times in milliseconds
+    """
+    try:
+        attr = AttributeProxy(fqdn)
+        attr.read()
+    except Exception as exc:
+        log.error(f"{fqdn}: {exc}")
+        return []
+
+    access_times = []
+
+    log.info(f"Start polling {fqdn} for {totaltime} s.")
+    time_start = time.time()
+    while (t0 := time.time()) < (time_start + totaltime):
+        value = attr.read()
+        access_times.append(1000 * (time.time() - t0))
+        time.sleep(wait)
+    log.info(f"Finished polling {fqdn}")
+    return access_times
+
+
+def image_handler(event):
+    """
+    Dummy image event handler
+
+    Parameters
+    ----------
+    event : tango event
+       Event to be handled
+    """
+    pass
+
+
+def start_vimbacamera(fqdn: str, fps: float, streamrate: float, subscribe: bool) -> int:
+    """
+    Start vimba camera with given settings.
+
+    Configures frame rate and data stream rate of vimba camera and registers
+    dummy handler for image data.
+
+    Parameters
+    ----------
+    fqdn
+        Fully qualified domain name of tango attribute to poll
+    fps
+        frames per second
+    streamrate
+        stream bytes per second
+    viewmode
+        which image type
+
+    Returns
+    -------
+    event_id
+        Numeric id of event subscription
+    """
+    event_id = None
+    cam = DeviceProxy(fqdn)
+    if cam.state() == DevState.MOVING:
+        log.warning(f"Camera {fqdn} already running. Stopping it now.")
+        cam.StopAcquisition()
+    log.info(f"Configuring camera {fqdn}")
+    cam.StreamBytesPerSecond = streamrate
+    fpsmax = cam.AcquisitionFrameRateLimit.read().value
+    log.info(f"Max. frame rate: {fpsmax:.2f}")
+    cam.AcquisitionFrameRateAbs = min(fps, fpsmax)
+    log.info(f"stream rate: {streamrate}, frame rate: {min(fps, fpsmax)}")
+    cam.ViewingMode = 1
+
+    if subscribe:
+        event_id = cam.subscribe_event("image8", EventType.CHANGE_EVENT, image_handler)
+        log.info(f"Subscribing to image8 change event. {event_id=}")
+    else:
+        log.info("Not subscribing to image change event.")
+
+    cam.StartAcquisition()
+    log.info(f"Start acquisition.")
+    return event_id
+
+
+def stop_vimbacamera(fqdn: str, event_id=None):
+    """
+    Stop acquisition and unsubscribe events
+
+    Parameters
+    ----------
+    fqdn
+        Fully qualified domain name of tango attribute to poll
+    event_id
+        Numeric id of event subscription, or None
+    """
+    cam = DeviceProxy(fqdn)
+    if event_id is not None:
+        cam.unsubscribe_event(event_id)
+        log.info(f"Unsubscribing with {event_id=}")
+    cam.StopAcquisition()
+    log.info("Stop acquisition.")
+
+
+def worker_attributelist(attributes: list[str], wait: float, totaltime: float) -> dict:
+    """
+    Simultaneously start polling several attributes.
+
+    Uses multithreading to poll attributes and returns access times.
+
+    Parameters
+    ----------
+    attributes
+        list of tango attribute names to poll
+    wait
+        timeout between polls
+    totaltime
+        total time in seconds during which to poll attribute
+
+    Returns
+    -------
+    timings
+        dictionary of {"attribute": [access_times], ...}
+    """
+    func_poll = partial(poll_attribute, wait=wait, totaltime=totaltime)
+    with ThreadPoolExecutor(len(attributes)) as executor:
+        timings = executor.map(func_poll, attributes)
+    return {attr: times for attr, times in zip(attributes, timings)}
+
+
+def save_timings(fname: str, timings: dict):
+    maxrows = max([len(v) for v in timings.values()])
+    data = np.nan * np.ones((len(timings), maxrows))
+    for i, v in enumerate(timings.values()):
+        data[i, :len(v)] = v
+    header = ", ".join(timings.keys())
+    np.savetxt(fname, data.T, fmt="%.3f", delimiter=",", header=header)
+
+
