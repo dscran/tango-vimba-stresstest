@@ -109,8 +109,11 @@ def poll_attribute(fqdn: str, wait: float, totaltime: float) -> List[float]:
     time_start = time.time()
     while True:
         t0 = time.time()
-        value = attr.read()
-        access_times.append(1000 * (time.time() - t0))
+        try:
+            value = attr.read()
+            access_times.append(1000 * (time.time() - t0))
+        except Exception as exc:
+            log.warning(f"Error reading {fqdn}: {exc}")
         if t0 > (time_start + totaltime):
             break
         time.sleep(wait)
