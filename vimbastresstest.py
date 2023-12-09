@@ -98,7 +98,7 @@ def poll_attribute(fqdn: str, wait: float, totaltime: float) -> List[float]:
     """
     try:
         attr = AttributeProxy(fqdn)
-        attr.read(timeout=30)
+        attr.read()
     except Exception as exc:
         log.error(f"{fqdn}: {exc}")
         return []
