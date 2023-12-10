@@ -5,6 +5,7 @@ from functools import partial
 import numpy as np
 from tango import DeviceProxy, AttributeProxy, EventType, DevState
 from typing import List, Dict
+from socket import gethostbyname
 import argparse
 
 
@@ -250,6 +251,7 @@ def main(fps=2, streamMB=1.5, subscribe=True, wait=1, totaltime=30):
     tstamp = time.strftime("%Y%m%d_%H%M%S")
     csvname = f"timings_{tstamp}.csv"
     info = [
+        f"host={gethostname()}",
         f"fps={fps}",
         f"streamMB={streamMB}",
         f"subscribe={subscribe}",
