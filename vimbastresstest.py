@@ -239,7 +239,7 @@ def save_timings(fname: str, timings: Dict):
     maxrows = max([len(v) for v in timings.values()])
     data = np.nan * np.ones((len(timings), maxrows))
     for i, v in enumerate(timings.values()):
-        data[i, :len(v)] = v
+        data[i:len(v)] = v
     header = ", ".join(timings.keys())
     np.savetxt(fname, data.T, fmt="%.3f", delimiter=",", header=header)
 
@@ -248,27 +248,31 @@ def main(fps=2, streamMB=1.5, subscribe=True, wait=1, totaltime=30):
     cam, event_id = start_vimbacamera(FQDN_MICROSCOPE, fps, int(1e6 * streamMB), True)
     results = worker_attributelist(ATTR_LIST_MAXP04, wait, totaltime)
     stop_vimbacamera(cam, event_id)
+
     tstamp = time.strftime("%Y%m%d_%H%M%S")
     csvname = f"timings_{tstamp}.csv"
+
     info = [
         f"host={gethostname()}",
         f"fps={fps}",
         f"streamMB={streamMB}",
         f"subscribe={subscribe}",
         f"wait={wait}",
-        f"totaltime={totaltime}"
+        f"totaltime={totaltime}",
     ]
     info_header = "\n".join(["# " + v for v in info]) + "\n"
+
     with open(csvname, "w") as f:
         f.write(info_header)
         save_timings(f, results)
+
     log.info(f"Results saved to {csvname}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        prog='tangovimba_stresstest',
-        description='Measure tango attribute access times with active vimba camera.',
+        prog="tangovimba_stresstest",
+        description="Measure tango attribute access times with active vimba camera.",
     )
     parser.add_argument("fps", type=float, default=2)
     parser.add_argument("streamMB", type=float, default=6)
