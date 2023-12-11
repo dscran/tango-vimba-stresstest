@@ -245,7 +245,7 @@ def save_timings(fname: str, timings: Dict):
 
 
 def main(fps=2, streamMB=1.5, subscribe=True, wait=1, totaltime=30):
-    cam, event_id = start_vimbacamera(FQDN_MICROSCOPE, fps, int(1e6 * streamMB), True)
+    cam, event_id = start_vimbacamera(FQDN_MICROSCOPE, fps, int(1e6 * streamMB), subscribe)
     results = worker_attributelist(ATTR_LIST_MAXP04, wait, totaltime)
     stop_vimbacamera(cam, event_id)
 
