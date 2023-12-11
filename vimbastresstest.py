@@ -239,7 +239,7 @@ def save_timings(fname: str, timings: Dict):
     maxrows = max([len(v) for v in timings.values()])
     data = np.nan * np.ones((len(timings), maxrows))
     for i, v in enumerate(timings.values()):
-        data[i:len(v)] = v
+        data[i, : len(v)] = v
     header = ", ".join(timings.keys())
     np.savetxt(fname, data.T, fmt="%.3f", delimiter=",", header=header)
 
