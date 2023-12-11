@@ -5,7 +5,7 @@ from functools import partial
 import numpy as np
 from tango import DeviceProxy, AttributeProxy, EventType, DevState
 from typing import List, Dict
-from socket import gethostbyname
+from socket import gethostname
 import argparse
 
 
