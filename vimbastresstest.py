@@ -276,7 +276,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("fps", type=float, default=2)
     parser.add_argument("streamMB", type=float, default=6)
-    parser.add_argument("subscribe", type=bool, default=True)
+    parser.add_argument("subscribe", type=int, default=1)
     parser.add_argument("wait", type=float, default=1)
     parser.add_argument("totaltime", type=float, default=30)
     args = parser.parse_args()
