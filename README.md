@@ -7,7 +7,7 @@ However, the goal here is to obtain worst-case access times as a function of vim
 
 ## Usage
 
-```bash
+```
 > python3 vimbastresstest.py -h
 usage: tangovimba_stresstest [-h] fps streamMB subscribe wait totaltime
 
